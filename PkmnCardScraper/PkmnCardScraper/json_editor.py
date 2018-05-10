@@ -13,13 +13,21 @@ df = pd.read_json("scraped_data.json")
 data_dicts = df.to_dict(orient="records")
 
 for i in range(len(data_dicts)):
+    #remove $ from prices
+    data_dicts[i]["low price"] = data_dicts[i]["low price"][1:]
+    data_dicts[i]["mid price"] = data_dicts[i]["mid price"][1:]
+    data_dicts[i]["high price"] = data_dicts[i]["high price"][1:]
+    
     data_str = data_dicts[i]["type"]
     
     #ignore non-pokemon cards
     try:
         index = data_str.index('HP<br>')
     except ValueError:
-        data_dicts[i] = None
+        #data_dicts[i] = None
+        #instead of removing, set HP and type tp 'N/A'
+        data_dicts[i]["type"] = 'N/A'
+        data_dicts[i]["HP"] = 'N/A'
         continue
     
     #get card type
@@ -39,11 +47,6 @@ for i in range(len(data_dicts)):
     
     #set card HP
     data_dicts[i]["HP"] = pkmn_hp
-    
-    #remove $ from prices
-    data_dicts[i]["low price"] = data_dicts[i]["low price"][1:]
-    data_dicts[i]["mid price"] = data_dicts[i]["mid price"][1:]
-    data_dicts[i]["high price"] = data_dicts[i]["high price"][1:]
 
 #remove ignored non-pokemon cards from data
 data_dicts = list(filter(None, data_dicts))

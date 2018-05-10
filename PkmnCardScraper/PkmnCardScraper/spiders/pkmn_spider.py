@@ -26,7 +26,8 @@ class PkmnSpiderSpider(scrapy.Spider):
         low_prices = response.xpath('//div[@class = "low"]/a/text()').extract()
         mid_prices = response.xpath('//div[@class = "mid"]/a/text()').extract()
         high_prices = response.xpath('//div[@class = "hi"]/a/text()').extract()
-        imgs = response.css('.scan.left a img::attr(src)').extract()
+        imgs = response.css('.scan.left a::attr(href)').extract()
+        #imgs = response.css('.scan.left a img::attr(src)').extract()
         #pkmn_types = response.css('.text p:nth-child(1)').extract()
         pkmn_types = response.xpath('//div[@class = "text"]').extract()
 
