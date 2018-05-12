@@ -18,14 +18,18 @@ for i in range(len(data_dicts)):
     data_dicts[i]["mid price"] = data_dicts[i]["mid price"][1:]
     data_dicts[i]["high price"] = data_dicts[i]["high price"][1:]
     
+    #split name into name and set
+    name_and_set = data_dicts[i]["name"]
+    this_name, this_set = name_and_set.split("(")
+    data_dicts[i]["name"]  = this_name[:len(this_name)-1]
+    data_dicts[i]["set"] = this_set[:len(this_set)-1]
+    
     data_str = data_dicts[i]["type"]
     
-    #ignore non-pokemon cards
+    #set type and HP of non-pokemon cards to N/A
     try:
         index = data_str.index('HP<br>')
     except ValueError:
-        #data_dicts[i] = None
-        #instead of removing, set HP and type tp 'N/A'
         data_dicts[i]["type"] = 'N/A'
         data_dicts[i]["HP"] = 'N/A'
         continue
@@ -48,14 +52,8 @@ for i in range(len(data_dicts)):
     #set card HP
     data_dicts[i]["HP"] = pkmn_hp
 
-#remove ignored non-pokemon cards from data
-data_dicts = list(filter(None, data_dicts))
-
+#write data to new json file
 data_json = json.dumps(data_dicts)
 fp = open('cards.json', 'a')
-
-# write to json file
 fp.write(data_json)
-
-# close the connection
 fp.close()
