@@ -14,7 +14,7 @@ import pkmn_load_data as pkmn_data
 from sklearn.utils import shuffle
 
 #import data
-X, Y_type = pkmn_data.load_pkmn_data()
+X, Y_type = pkmn_data.load_pkmn_data(350)
 
 #Convert types from text to class vectors
 n_y = 12 #total number of classes
@@ -115,7 +115,7 @@ def compute_cost(Z5, Y):
     
     return cost
 
-def model(X_train, Y_train, X_test, Y_test, learning_rate = 0.0005, num_epochs = 1000,  print_cost = True):
+def model(X_train, Y_train, X_test, Y_test, learning_rate = 0.0005, num_epochs = 150,  print_cost = True):
     ops.reset_default_graph()
     (n_x, m) = X_train.shape
     n_y = Y_train.shape[0]
@@ -180,4 +180,4 @@ def model(X_train, Y_train, X_test, Y_test, learning_rate = 0.0005, num_epochs =
         return parameters
     
 if __name__ == "__main__":
-    model(X_train, Y_train, X_test, Y_test, learning_rate = 0.0005, num_epochs = 500,  print_cost = True)
+    model(X_train, Y_train, X_test, Y_test, learning_rate = 0.0005, num_epochs = 150,  print_cost = True)
