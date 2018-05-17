@@ -12,43 +12,70 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pkmn_load_data as pkmn_data
 from sklearn.utils import shuffle
+from utilities import predict
 
-#import data
-X, Y_type = pkmn_data.load_pkmn_data(350)
+#Import and normalize data
+X, Y_type = pkmn_data.load_pkmn_data(4000)
+X = X/255
+n_y = 12 #total number of classes
 
 #Convert types from text to class vectors
-n_y = 12 #total number of classes
+grass_label = [1,0,0,0,0,0,0,0,0,0,0,0]
+fire_label = [0,1,0,0,0,0,0,0,0,0,0,0]
+water_label = [0,0,1,0,0,0,0,0,0,0,0,0]
+lightning_label = [0,0,0,1,0,0,0,0,0,0,0,0]
+psychic_label = [0,0,0,0,1,0,0,0,0,0,0,0]
+fighting_label = [0,0,0,0,0,1,0,0,0,0,0,0]
+darkness_label = [0,0,0,0,0,0,1,0,0,0,0,0]
+metal_label = [0,0,0,0,0,0,0,1,0,0,0,0]
+fairy_label = [0,0,0,0,0,0,0,0,1,0,0,0]
+dragon_label = [0,0,0,0,0,0,0,0,0,1,0,0]
+colorless_label = [0,0,0,0,0,0,0,0,0,0,1,0]
+na_label = [0,0,0,0,0,0,0,0,0,0,0,1]
 types = ['Grass', 'Fire', 'Water', 'Lightning', 'Psychic', 'Fighting', 'Darkness', 'Metal', 'Fairy', 'Dragon', 'Colorless', 'N/A']
+type_labels = [grass_label, fire_label, water_label, lightning_label, psychic_label, fighting_label, darkness_label, metal_label, fairy_label, dragon_label, colorless_label, na_label]
+
 Y_type_vectorized = np.zeros((X.shape[1], n_y))
 iter = 0
 for pkmn_type in Y_type:
-    if pkmn_type == 'Grass': Y_type_vectorized[iter,:] = [1,0,0,0,0,0,0,0,0,0,0,0]
-    if pkmn_type == 'Fire': Y_type_vectorized[iter,:] = [0,1,0,0,0,0,0,0,0,0,0,0]
-    if pkmn_type == 'Water': Y_type_vectorized[iter,:] = [0,0,1,0,0,0,0,0,0,0,0,0]
-    if pkmn_type == 'Lightning': Y_type_vectorized[iter,:] = [0,0,0,1,0,0,0,0,0,0,0,0]
-    if pkmn_type == 'Psychic': Y_type_vectorized[iter,:] = [0,0,0,0,1,0,0,0,0,0,0,0]
-    if pkmn_type == 'Fighting': Y_type_vectorized[iter,:] = [0,0,0,0,0,1,0,0,0,0,0,0]
-    if pkmn_type == 'Darkness': Y_type_vectorized[iter,:] = [0,0,0,0,0,0,1,0,0,0,0,0]
-    if pkmn_type == 'Metal': Y_type_vectorized[iter,:] = [0,0,0,0,0,0,0,1,0,0,0,0]
-    if pkmn_type == 'Fairy': Y_type_vectorized[iter,:] = [0,0,0,0,0,0,0,0,1,0,0,0]
-    if pkmn_type == 'Dragon': Y_type_vectorized[iter,:] = [0,0,0,0,0,0,0,0,0,1,0,0]
-    if pkmn_type == 'Colorless': Y_type_vectorized[iter,:] = [0,0,0,0,0,0,0,0,0,0,1,0]
-    if pkmn_type == 'N/A': Y_type_vectorized[iter,:] = [0,0,0,0,0,0,0,0,0,0,0,1]
+    if pkmn_type == 'Grass': Y_type_vectorized[iter,:] = grass_label
+    elif pkmn_type == 'Fire': Y_type_vectorized[iter,:] = fire_label
+    elif pkmn_type == 'Water': Y_type_vectorized[iter,:] = water_label
+    elif pkmn_type == 'Lightning': Y_type_vectorized[iter,:] = lightning_label
+    elif pkmn_type == 'Psychic': Y_type_vectorized[iter,:] = psychic_label
+    elif pkmn_type == 'Fighting': Y_type_vectorized[iter,:] = fighting_label
+    elif pkmn_type == 'Darkness': Y_type_vectorized[iter,:] = darkness_label
+    elif pkmn_type == 'Metal': Y_type_vectorized[iter,:] = metal_label
+    elif pkmn_type == 'Fairy': Y_type_vectorized[iter,:] = fairy_label
+    elif pkmn_type == 'Dragon': Y_type_vectorized[iter,:] = dragon_label
+    elif pkmn_type == 'Colorless': Y_type_vectorized[iter,:] = colorless_label
+    elif pkmn_type == 'N/A': Y_type_vectorized[iter,:] = na_label
+    else:
+        first_type, _ = pkmn_type.split(',')
+        for j in range(len(types)):
+            if first_type == types[j]: Y_type_vectorized[iter,:] = type_labels[j]
     iter += 1
 Y_type_vectorized = Y_type_vectorized.T
+
+#Test that all cards have only one label
+count = 0
+for col in range(len(Y_type_vectorized[0])):
+    col_sum = np.sum(Y_type_vectorized[:,col])
+    if col_sum != 1: 
+        count += 1
 
 #Randomize X and Y matrices
 X_shuffled, Y_type_vectorized_shuffled = shuffle(X.T, Y_type_vectorized.T)
 X_shuffled = X_shuffled.T
 Y_type_vectorized_shuffled = Y_type_vectorized_shuffled.T
 
-#Divide X and Y into train and test groups
-train_end_index = int(0.8 * X_shuffled.shape[1])
+#Divide X and Y into train and dev groups
+train_end_index = int(0.8 * X_shuffled.shape[1]) #use 80% of data for train
 X_train = X_shuffled[:,:train_end_index]
-X_test = X_shuffled[:,train_end_index:]
+X_dev = X_shuffled[:,train_end_index:]
 n_x = X_train.shape[0]
 Y_train = Y_type_vectorized_shuffled[:,:train_end_index]
-Y_test = Y_type_vectorized_shuffled[:,train_end_index:]
+Y_dev = Y_type_vectorized_shuffled[:,train_end_index:]
 
 def create_placeholders(n_x, n_y):
     X = tf.placeholder(tf.float32, shape = (n_x, None), name = 'X')
@@ -94,7 +121,6 @@ def forward_propogation(X, parameters):
     
     #perform linear -> relu until generating Z matrix of output layer
     Z1 = tf.matmul(W1, X) + b1
-    print("Z1 shape is " + str(Z1.shape))
     A1 = tf.nn.relu(Z1)
     Z2 = tf.matmul(W2, A1) + b2
     A2 = tf.nn.relu(Z2)
@@ -103,7 +129,6 @@ def forward_propogation(X, parameters):
     Z4 = tf.matmul(W4, A3) + b4
     A4 = tf.nn.relu(Z4)
     Z5 = tf.matmul(W5, A4) + b5
-    print("Z5 shape is " + str(Z5.shape))
     
     return Z5
 
@@ -115,7 +140,7 @@ def compute_cost(Z5, Y):
     
     return cost
 
-def model(X_train, Y_train, X_test, Y_test, learning_rate = 0.0005, num_epochs = 150,  print_cost = True):
+def model(X_train, Y_train, X_dev, Y_dev, learning_rate = 0.0005, num_epochs = 150,  print_cost = True):
     ops.reset_default_graph()
     (n_x, m) = X_train.shape
     n_y = Y_train.shape[0]
@@ -152,7 +177,7 @@ def model(X_train, Y_train, X_test, Y_test, learning_rate = 0.0005, num_epochs =
             epoch_cost += curr_cost
             
             # Print the cost every epoch
-            if print_cost == True and epoch % 1 == 0:
+            if print_cost == True and epoch % 10 == 0:
                 print ("Cost after epoch %i: %f" % (epoch, epoch_cost))
             if print_cost == True and epoch % 5 == 0:
                 costs.append(epoch_cost)
@@ -171,13 +196,15 @@ def model(X_train, Y_train, X_test, Y_test, learning_rate = 0.0005, num_epochs =
         # Calculate the correct predictions
         correct_prediction = tf.equal(tf.argmax(Z5), tf.argmax(Y))
 
-        # Calculate accuracy on the test set
+        # Calculate accuracy on the dev set
         accuracy = tf.reduce_mean(tf.cast(correct_prediction, "float"))
 
         print ("Train Accuracy:", accuracy.eval({X: X_train, Y: Y_train}))
-        print ("Test Accuracy:", accuracy.eval({X: X_test, Y: Y_test}))
+        print ("Dev Accuracy:", accuracy.eval({X: X_dev, Y: Y_dev}))
         
         return parameters
     
 if __name__ == "__main__":
-    model(X_train, Y_train, X_test, Y_test, learning_rate = 0.0005, num_epochs = 150,  print_cost = True)
+    model(X_train, Y_train, X_dev, Y_dev, learning_rate = 0.0005, num_epochs = 150,  print_cost = True)
+    prediction = predict(X_pred, params)
+    print("predicted value is " + str(prediction))
