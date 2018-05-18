@@ -10,55 +10,33 @@ import tensorflow as tf
 from tensorflow.python.framework import ops
 import matplotlib.pyplot as plt
 import numpy as np
-import pkmn_load_data as pkmn_data
+import pkmn_load_data_vec as pkmn_data
 from sklearn.utils import shuffle
+from utilities import predict
 
-#import data
-X, Y = pkmn_data.load_pkmn_data(4000)
+#Import and normalize data
+#currently set to load HP as Y vector
+_, X, _, _, _, _, _, _, _, Y = pkmn_data.pkmn_load_data_vec(200)
 X = X/255
 
-#Convert types from text to class vectors
-n_y = 19 #total number of classes
-
-#inclusing types in order for checking labels later
-
-Y_vectorized = np.zeros((X.shape[1], n_y))
-iter = 0
-for HP in Y[0]:
-    if HP == 0: Y_vectorized[iter,0] = 1
-    elif HP == 30: Y_vectorized[iter,1] = 1
-    elif HP == 40: Y_vectorized[iter,2] = 1
-    elif HP == 50: Y_vectorized[iter,3] = 1
-    elif HP == 60: Y_vectorized[iter,4] = 1
-    elif HP == 70: Y_vectorized[iter,5] = 1
-    elif HP == 80: Y_vectorized[iter,6] = 1
-    elif HP == 90: Y_vectorized[iter,7] = 1
-    elif HP == 100: Y_vectorized[iter,8] = 1
-    elif HP == 110: Y_vectorized[iter,9] = 1
-    elif HP == 120: Y_vectorized[iter,10] = 1
-    elif HP == 130: Y_vectorized[iter,11] = 1
-    elif HP == 140: Y_vectorized[iter,12] = 1
-    elif HP == 150: Y_vectorized[iter,13] = 1
-    elif HP == 160: Y_vectorized[iter,14] = 1
-    elif HP == 170: Y_vectorized[iter,15] = 1
-    elif HP == 180: Y_vectorized[iter,16] = 1
-    elif HP == 190: Y_vectorized[iter,17] = 1
-    elif HP == 200: Y_vectorized[iter,18] = 1
-    iter += 1
-Y_vectorized = Y_vectorized.T
-
+#Remove cards with no HP from dataset
+for label in range(len(Y[0])):
+    if np.isnan(Y[0][label]):
+        Y[0][label] = 0
+    
 #Randomize X and Y matrices
-X_shuffled, Y_vectorized_shuffled = shuffle(X.T, Y_vectorized.T)
+X_shuffled, Y_shuffled = shuffle(X.T, Y.T)
 X_shuffled = X_shuffled.T
-Y_vectorized_shuffled = Y_vectorized_shuffled.T
+Y_shuffled = Y_shuffled.T
 
 #Divide X and Y into train and dev groups
 train_end_index = int(0.8 * X_shuffled.shape[1]) #use 80% of data for train
 X_train = X_shuffled[:,:train_end_index]
 X_dev = X_shuffled[:,train_end_index:]
 n_x = X_train.shape[0]
-Y_train = Y_vectorized_shuffled[:,:train_end_index]
-Y_dev = Y_vectorized_shuffled[:,train_end_index:]
+Y_train = Y_shuffled[:,:train_end_index]
+Y_dev = Y_shuffled[:,train_end_index:]
+n_y = 1
 
 def create_placeholders(n_x, n_y):
     X = tf.placeholder(tf.float32, shape = (n_x, None), name = 'X')
@@ -66,16 +44,16 @@ def create_placeholders(n_x, n_y):
     return X, Y
 
 def initialize_parameters(n_x):
-    W1 = tf.get_variable('W1', [1024, n_x], initializer = tf.contrib.layers.xavier_initializer())
-    b1 = tf.get_variable('b1', [1024, 1], initializer = tf.zeros_initializer())
-    W2 = tf.get_variable('W2', [512, 1024], initializer = tf.contrib.layers.xavier_initializer())
+    W1 = tf.get_variable('W1', [512, n_x], initializer = tf.contrib.layers.xavier_initializer())
+    b1 = tf.get_variable('b1', [512, 1], initializer = tf.zeros_initializer())
+    W2 = tf.get_variable('W2', [512, 512], initializer = tf.contrib.layers.xavier_initializer())
     b2 = tf.get_variable('b2', [512, 1], initializer = tf.zeros_initializer())
     W3 = tf.get_variable('W3', [256, 512], initializer = tf.contrib.layers.xavier_initializer())
     b3 = tf.get_variable('b3', [256, 1], initializer = tf.zeros_initializer())
     W4 = tf.get_variable('W4', [128, 256], initializer = tf.contrib.layers.xavier_initializer())
     b4 = tf.get_variable('b4', [128, 1], initializer = tf.zeros_initializer())
-    W5 = tf.get_variable('W5', [n_y, 128], initializer = tf.contrib.layers.xavier_initializer())
-    b5 = tf.get_variable('b5', [n_y, 1], initializer = tf.zeros_initializer())
+    W5 = tf.get_variable('W5', [1, 128], initializer = tf.contrib.layers.xavier_initializer())
+    b5 = tf.get_variable('b5', [1, 1], initializer = tf.zeros_initializer())
     
     parameters = {"W1": W1,
                   "b1": b1,
@@ -115,15 +93,13 @@ def forward_propogation(X, parameters):
     
     return Z5
 
-def compute_cost(Z5, Y):
-    logits = tf.transpose(Z5)
-    labels = tf.transpose(Y)
-    
-    cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits = logits, labels = labels))
+def compute_cost(Z5, Y):    
+    cost = tf.reduce_mean(tf.squared_difference(Z5, Y))
+    #cost = tf.reduce_mean(tf.square(Z5 - Y))
     
     return cost
 
-def model(X_train, Y_train, X_dev, Y_dev, learning_rate = 0.0005, num_epochs = 150,  print_cost = True):
+def model(X_train, Y_train, X_dev, Y_dev, learning_rate = 0.005, num_epochs = 500,  print_cost = True):
     ops.reset_default_graph()
     (n_x, m) = X_train.shape
     n_y = Y_train.shape[0]
@@ -138,7 +114,7 @@ def model(X_train, Y_train, X_dev, Y_dev, learning_rate = 0.0005, num_epochs = 1
     #Run forward prop
     Z5 = forward_propogation(X, parameters)
     
-    #compute cost
+    #Compute cost
     cost = compute_cost(Z5, Y)
     
     #Run back prop
@@ -176,16 +152,15 @@ def model(X_train, Y_train, X_dev, Y_dev, learning_rate = 0.0005, num_epochs = 1
         parameters = sess.run(parameters)
         print ("Parameters have been trained!")
 
-        # Calculate the correct predictions
-        correct_prediction = tf.equal(tf.argmax(Z5), tf.argmax(Y))
-
-        # Calculate accuracy on the dev set
-        accuracy = tf.reduce_mean(tf.cast(correct_prediction, "float"))
-
-        print ("Train Accuracy:", accuracy.eval({X: X_train, Y: Y_train}))
-        print ("Dev Accuracy:", accuracy.eval({X: X_dev, Y: Y_dev}))
+        # Calculate error
+        rmse = tf.sqrt(tf.reduce_mean(tf.square(Z5 - Y)))
+        train_rmse = rmse.eval({X: X_train, Y: Y_train})
+        dev_rmse = rmse.eval({X: X_dev, Y: Y_dev})
+        print("Train RMSE:", train_rmse)
+        print("Dev RMSE:", dev_rmse)
         
         return parameters
     
+    
 if __name__ == "__main__":
-    model(X_train, Y_train, X_dev, Y_dev, learning_rate = 0.005, num_epochs = 150,  print_cost = True)
+    params = model(X_train, Y_train, X_dev, Y_dev)
