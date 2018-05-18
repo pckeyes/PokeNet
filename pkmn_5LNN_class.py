@@ -10,12 +10,12 @@ import tensorflow as tf
 from tensorflow.python.framework import ops
 import matplotlib.pyplot as plt
 import numpy as np
-import pkmn_load_data as pkmn_data
+import pkmn_load_data_vec as pkmn_data
 from sklearn.utils import shuffle
-from utilities import predict
 
 #Import and normalize data
-X, Y_type = pkmn_data.load_pkmn_data(4000)
+#currently set to load type as Y vector
+_, X, Y_type, _, _, _, _, _, _, _ = pkmn_data.pkmn_load_data_vec(200)
 X = X/255
 n_y = 12 #total number of classes
 
