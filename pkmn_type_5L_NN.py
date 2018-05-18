@@ -205,6 +205,4 @@ def model(X_train, Y_train, X_dev, Y_dev, learning_rate = 0.0005, num_epochs = 1
         return parameters
     
 if __name__ == "__main__":
-    model(X_train, Y_train, X_dev, Y_dev, learning_rate = 0.0005, num_epochs = 150,  print_cost = True)
-    prediction = predict(X_pred, params)
-    print("predicted value is " + str(prediction))
+    model(X_train, Y_train, X_dev, Y_dev)

@@ -14,17 +14,15 @@ import pkmn_load_data as pkmn_data
 from sklearn.utils import shuffle
 from utilities import predict
 
-#import data
+#Import and normalize data
 X, Y = pkmn_data.load_pkmn_data(4000)
 X = X/255
-X_pred = X[:,0:1]
-#Y = Y.T
 
-##Remove cards with no HP from dataset
-#for label in range(len(Y[0])):
-#    if np.isnan(Y[0][label]):
-#        Y[0][label] = 0
-#    
+#Remove cards with no HP from dataset
+for label in range(len(Y[0])):
+    if np.isnan(Y[0][label]):
+        Y[0][label] = 0
+    
 #Randomize X and Y matrices
 X_shuffled, Y_shuffled = shuffle(X.T, Y.T)
 X_shuffled = X_shuffled.T
@@ -96,10 +94,11 @@ def forward_propogation(X, parameters):
 
 def compute_cost(Z5, Y):    
     cost = tf.reduce_mean(tf.squared_difference(Z5, Y))
+    #cost = tf.reduce_mean(tf.square(Z5 - Y))
     
     return cost
 
-def model(X_train, Y_train, X_dev, Y_dev, learning_rate = 0.0005, num_epochs = 150,  print_cost = True):
+def model(X_train, Y_train, X_dev, Y_dev, learning_rate = 0.005, num_epochs = 500,  print_cost = True):
     ops.reset_default_graph()
     (n_x, m) = X_train.shape
     n_y = Y_train.shape[0]
@@ -114,7 +113,7 @@ def model(X_train, Y_train, X_dev, Y_dev, learning_rate = 0.0005, num_epochs = 1
     #Run forward prop
     Z5 = forward_propogation(X, parameters)
     
-    #compute cost
+    #Compute cost
     cost = compute_cost(Z5, Y)
     
     #Run back prop
@@ -136,7 +135,7 @@ def model(X_train, Y_train, X_dev, Y_dev, learning_rate = 0.0005, num_epochs = 1
             epoch_cost += curr_cost
             
             # Print the cost every epoch
-            if print_cost == True and epoch % 1 == 0:
+            if print_cost == True and epoch % 10 == 0:
                 print ("Cost after epoch %i: %f" % (epoch, epoch_cost))
             if print_cost == True and epoch % 5 == 0:
                 costs.append(epoch_cost)
@@ -152,19 +151,15 @@ def model(X_train, Y_train, X_dev, Y_dev, learning_rate = 0.0005, num_epochs = 1
         parameters = sess.run(parameters)
         print ("Parameters have been trained!")
 
-        # Calculate the correct predictions
-        correct_prediction = tf.equal(Z5, Y)
-
-        # Calculate accuracy on the dev set
-        accuracy = tf.reduce_mean(tf.cast(correct_prediction, "float"))
-
-        print ("Train Accuracy:", accuracy.eval({X: X_train, Y: Y_train}))
-        print ("Dev Accuracy:", accuracy.eval({X: X_dev, Y: Y_dev}))
+        # Calculate error
+        rmse = tf.sqrt(tf.reduce_mean(tf.square(Z5 - Y)))
+        train_rmse = rmse.eval({X: X_train, Y: Y_train})
+        dev_rmse = rmse.eval({X: X_dev, Y: Y_dev})
+        print("Train RMSE:", train_rmse)
+        print("Dev RMSE:", dev_rmse)
         
         return parameters
     
     
 if __name__ == "__main__":
-    params = model(X_train, Y_train, X_dev, Y_dev, learning_rate = 0.0005, num_epochs = 100,  print_cost = True)
-    prediction = predict(X_pred, params)
-    print("predicted value is " + str(prediction))
+    params = model(X_train, Y_train, X_dev, Y_dev)
