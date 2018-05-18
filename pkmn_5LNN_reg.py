@@ -5,6 +5,20 @@ Created on Wed May 16 10:26:17 2018
 
 @author: piperkeyes
 """
+#DESCRIPTION:
+#This script trains a 5 layer NN to classify images of Pokemon cards based
+#on the HP or price of the card. The input X is a 2D matrix of the shape (nx, m), 
+#where nx is the number of pixels in the image and m is the number of images
+#loaded. Pass the desired number of images into the pkmn_load_data_vec() method.
+#The output layer is a single linear activation function and the cost
+#function uses mean squared error. This code was adapted from the CS230
+#Tensorflow tutorial assignment.
+#
+# train_rmse    : average error across all predictions in the training set
+# dev_rmse      : average error across all predictions in the dev set
+# params        : trained parameters
+# costs         : list of costs for each iteration
+
 import tensorflow as tf
 #from tf_utils import load_dataset, random_mini_batches, convert_to_one_hot, predict
 from tensorflow.python.framework import ops
@@ -12,7 +26,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pkmn_load_data_vec as pkmn_data
 from sklearn.utils import shuffle
-from utilities import predict
 
 #Import and normalize data
 #currently set to load HP as Y vector
@@ -95,7 +108,6 @@ def forward_propogation(X, parameters):
 
 def compute_cost(Z5, Y):    
     cost = tf.reduce_mean(tf.squared_difference(Z5, Y))
-    #cost = tf.reduce_mean(tf.square(Z5 - Y))
     
     return cost
 
@@ -162,5 +174,5 @@ def model(X_train, Y_train, X_dev, Y_dev, learning_rate = 0.005, num_epochs = 50
         return parameters
     
     
-if __name__ == "__main__":
-    params = model(X_train, Y_train, X_dev, Y_dev)
+#Train the model
+params = model(X_train, Y_train, X_dev, Y_dev)

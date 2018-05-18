@@ -5,6 +5,20 @@ Created on Wed May 16 10:26:17 2018
 
 @author: piperkeyes
 """
+#DESCRIPTION:
+#This script trains a 5 layer NN to classify images of Pokemon cards based
+#on the type of the card. The input X is a 2D matrix of the shape (nx, m), 
+#where nx is the number of pixels in the image and m is the number of images
+#loaded. Pass the desired number of images into the pkmn_load_data_vec() method.
+#The output layer uses a softmax activation function and the cost
+#function uses cross entropy loss. This code was adapted from the CS230
+#Tensorflow tutorial assignment.
+#
+# train_accuracy : percentage of correctly classified cards in the training set
+# dev_accuracy   : percentage of correctly classified cards in the dev set
+# params         : trained parameters
+# costs          : list of costs for each iteration
+
 import tensorflow as tf
 #from tf_utils import load_dataset, random_mini_batches, convert_to_one_hot, predict
 from tensorflow.python.framework import ops
@@ -50,6 +64,7 @@ for pkmn_type in Y_type:
     elif pkmn_type == 'Dragon': Y_type_vectorized[iter,:] = dragon_label
     elif pkmn_type == 'Colorless': Y_type_vectorized[iter,:] = colorless_label
     elif pkmn_type == 'N/A': Y_type_vectorized[iter,:] = na_label
+    #If card has two types, choose primary (i.e. first listed) type
     else:
         first_type, _ = pkmn_type.split(',')
         for j in range(len(types)):
@@ -57,12 +72,12 @@ for pkmn_type in Y_type:
     iter += 1
 Y_type_vectorized = Y_type_vectorized.T
 
-#Test that all cards have only one label
-count = 0
-for col in range(len(Y_type_vectorized[0])):
-    col_sum = np.sum(Y_type_vectorized[:,col])
-    if col_sum != 1: 
-        count += 1
+##Test that all cards have only one label
+#count = 0
+#for col in range(len(Y_type_vectorized[0])):
+#    col_sum = np.sum(Y_type_vectorized[:,col])
+#    if col_sum != 1: 
+#        count += 1
 
 #Randomize X and Y matrices
 X_shuffled, Y_type_vectorized_shuffled = shuffle(X.T, Y_type_vectorized.T)
@@ -204,5 +219,5 @@ def model(X_train, Y_train, X_dev, Y_dev, learning_rate = 0.0005, num_epochs = 1
         
         return parameters
     
-if __name__ == "__main__":
-    model(X_train, Y_train, X_dev, Y_dev)
+#Train the model
+params = model(X_train, Y_train, X_dev, Y_dev)
