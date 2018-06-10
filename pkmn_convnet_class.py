@@ -26,54 +26,8 @@ from tensorflow.python.framework import ops
 import pkmn_load_data_img as pkmn_data
 from sklearn.utils import shuffle
 import random_mini_batches as rmb
-
-# Load data
-data_path = "/Users/shatzlab/PycharmProjects/Pokemon_Deep_Learning/"
-_, X_loaded, Y_loaded, _, _, _, _, _, _, _ = pkmn_data.pkmn_load_data_img(300, data_path)
-
-# Dimensions of input data and number of classes
-num_cards, n_h, n_w, n_c = X_loaded.shape
-n_classes = 12
-
-# Convert Y to 'one-hot' across all classes (12 types)
-Y_one_hot = np.zeros((num_cards, n_classes))
-for card_i in range(num_cards):
-    if 'Fire' in Y_loaded[card_i]: Y_one_hot[card_i, 0] = 1
-    elif 'Water' in Y_loaded[card_i]: Y_one_hot[card_i, 1] = 1
-    elif 'Grass' in Y_loaded[card_i]: Y_one_hot[card_i, 2] = 1
-    elif 'Lightning' in Y_loaded[card_i]: Y_one_hot[card_i, 3] = 1
-    elif 'Grass' in Y_loaded[card_i]: Y_one_hot[card_i, 4] = 1
-    elif 'Psychic' in Y_loaded[card_i]: Y_one_hot[card_i, 5] = 1
-    elif 'Fighting' in Y_loaded[card_i]: Y_one_hot[card_i, 6] = 1
-    elif 'Dragon' in Y_loaded[card_i]: Y_one_hot[card_i, 7] = 1
-    elif 'Darkness' in Y_loaded[card_i]: Y_one_hot[card_i, 8] = 1
-    elif 'Metal' in Y_loaded[card_i]: Y_one_hot[card_i, 9] = 1
-    elif 'Colorless' in Y_loaded[card_i]: Y_one_hot[card_i, 10] = 1
-    elif 'N/A' in Y_loaded[card_i]: Y_one_hot[card_i, 11] = 1
-
-# Shuffle X and Y matrices
-X_shuffled = X_loaded
-Y_shuffled = Y_one_hot
-shuffled_i = shuffle(range(num_cards))
-for i in range(num_cards):
-    X_shuffled[i, :, :, :] = X_loaded[shuffled_i[i], :, :, :]
-    Y_shuffled[i, :] = Y_one_hot[shuffled_i[i], :]
-
-# Divide X and Y into train and dev groups
-train_end_index = int(0.8 * num_cards) # use 80% of data for train
-X_train = X_shuffled[:train_end_index, :, :, :] / 255
-X_dev = X_shuffled[train_end_index:, :, :, :] / 255
-Y_train = Y_shuffled[:train_end_index, :]
-Y_dev = Y_shuffled[train_end_index:, :]
-
-m = X_train.shape[0]
-
-print("number of training examples = " + str(X_train.shape[0]))
-print("number of test examples = " + str(X_dev.shape[0]))
-print("X_train shape: " + str(X_train.shape))
-print("Y_train shape: " + str(Y_train.shape))
-print("X_test shape: " + str(X_dev.shape))
-print("Y_test shape: " + str(Y_dev.shape))
+import time
+from copy import deepcopy
 
 
 # Create placeholders
@@ -97,11 +51,6 @@ def create_placeholders(n_H0, n_W0, n_C0, n_y):
     Y = tf.placeholder(tf.float32, shape=(None, n_y))
 
     return X, Y
-
-
-X, Y = create_placeholders(n_h, n_w, n_c, n_classes)
-print("X = " + str(X))
-print("Y = " + str(Y))
 
 
 # Initialize parameters
@@ -180,7 +129,11 @@ def forward_propagation(X, parameters):
     # FULLY-CONNECTED without nonlinear activation (softmax combined with cost fn)
     Z3 = tf.contrib.layers.fully_connected(P2, num_outputs=n_classes, activation_fn=None)
 
-    return Z3
+    out = {
+        'input': X, 'Z1': Z1, 'A1': A1, 'P1': P1, 'Z2': Z2, 'A2': A2, 'P2': P2, 'Z3': Z3
+    }
+
+    return out
 
 
 # Compute cost
@@ -212,8 +165,8 @@ def compute_cost(Z3, Y):
 # - compute the cost
 # - create an optimizer
 
-def model(X_train, Y_train, X_dev, Y_dev, learning_rate=0.009,
-          num_epochs=200, minibatch_size=m, print_cost=True):
+def model(X_train, Y_train, X_dev, Y_dev, X_test, Y_test, learning_rate=0.009,
+          num_epochs=200, minibatch_size=10, print_cost=True):
     """
     Implements a three-layer ConvNet in Tensorflow:
     CONV2D -> RELU -> MAXPOOL -> CONV2D -> RELU -> MAXPOOL -> FLATTEN -> FULLYCONNECTED
@@ -234,6 +187,7 @@ def model(X_train, Y_train, X_dev, Y_dev, learning_rate=0.009,
     parameters -- parameters learnt by the model. They can then be used to predict.
     """
 
+
     ops.reset_default_graph()  # to be able to rerun the model without overwriting tf variables
     tf.set_random_seed(1)  # to keep results consistent (tensorflow seed)
     seed = 3  # to keep results consistent (numpy seed)
@@ -248,7 +202,13 @@ def model(X_train, Y_train, X_dev, Y_dev, learning_rate=0.009,
     parameters = initialize_parameters()
 
     # Forward propagation: Build the forward propagation in the tensorflow graph
-    Z3 = forward_propagation(X, parameters)
+    Z3 = forward_propagation(X, parameters)['Z3']
+
+    # Get network layers (for CAM later)
+    inputL = forward_propagation(X, parameters)['input']
+    Z1 = forward_propagation(X, parameters)['Z1']
+    Z2 = forward_propagation(X, parameters)['Z2']
+    W_fc = [v for v in tf.trainable_variables() if v.name == "fully_connected/weights:0"][0]
 
     # Cost function: Add cost function to tensorflow graph
     cost = compute_cost(Z3, Y)
@@ -298,29 +258,132 @@ def model(X_train, Y_train, X_dev, Y_dev, learning_rate=0.009,
         predict_op = tf.argmax(Z3, 1)
         correct_prediction = tf.equal(predict_op, tf.argmax(Y, 1))
 
-        # Calculate accuracy on the test set
+        # Calculate accuracy on the dev and test set
         accuracy = tf.reduce_mean(tf.cast(correct_prediction, "float"))
-        print(accuracy)
         train_accuracy = accuracy.eval({X: X_train, Y: Y_train})
         dev_accuracy = accuracy.eval({X: X_dev, Y: Y_dev})
+        test_accuracy = accuracy.eval({X: X_test, Y: Y_test})
+
         print("Train Accuracy:", train_accuracy)
         print("Dev Accuracy:", dev_accuracy)
+        print("Test Accuracy:", test_accuracy)
 
-        return train_accuracy, dev_accuracy, parameters, costs
+        # Make CAM map
 
+        #inputimg = sess.run(inputL, feed_dict={X: testimg})
+        #outval = sess.run(Z3, feed_dict={X: testimg})
+        #camval = sess.run(Z1, feed_dict={X: testimg})
+        #cweights = W_fc
+
+        # Plot original Image
+        #plt.matshow(inputimg[0, :, :, 0], cmap=plt.get_cmap('gray'))
+        #plt.title("Input image")
+        #plt.colorbar()
+        #plt.show()
+
+        # Plot class activation maps
+        #fig, axs = plt.subplots(2, 6, figsize=(15, 6))
+        #for i in range(12):
+        #    predlabel = np.argmax(outval)
+        #    predweights = cweights[:, i:i + 1]
+        #    camsum = np.zeros((camval.shape[1], camval.shape[2]))
+        #    for j in range(camval.shape[3]):
+        #        camsum = camsum + predweights[j] * camval[0, :, :, j]
+        #    camavg = camsum / camval.shape[3]
+        #    # Plot
+        #    im = axs[int(i / 6)][i % 6].matshow(camavg.eval(session=sess), cmap=plt.get_cmap('inferno'))
+        #    axs[int(i / 6)][i % 6].set_title("[%d] prob is %.3f" % (i, outval[0, i]), size=10)
+        #    axs[int(i / 6)][i % 6].xaxis.set_major_locator(plt.NullLocator())
+        #    axs[int(i / 6)][i % 6].yaxis.set_major_locator(plt.NullLocator())
+        #    plt.draw()
+
+        #fig.subplots_adjust(right=0.8)
+        #cbar_ax = fig.add_axes([0.85, 0.15, 0.05, 0.7])
+        #fig.colorbar(im, cax=cbar_ax)
+        #plt.show()
+
+        return train_accuracy, dev_accuracy, test_accuracy, parameters, costs
+
+
+# Load data
+data_path = "/Users/piperkeyes/Documents/Stanford/Classes/CS230_DeepLearning/PokeNet"
+X_loaded, _, Y_name, Y_loaded, _, _, _, _, _ = pkmn_data.pkmn_load_data_img(200, data_path)
+test_i = 64
+testimg = deepcopy(X_loaded[test_i,:,:,:])
+testimg = testimg.reshape((1, testimg.shape[0], testimg.shape[0], 3))
+
+# Dimensions of input data and number of classes
+num_cards, n_h, n_w, n_c = X_loaded.shape
+n_classes = 12
+
+# Convert Y to 'one-hot' across all classes (12 types)
+Y_one_hot = np.zeros((num_cards, n_classes))
+for card_i in range(num_cards):
+    if 'Fire' in Y_loaded[card_i]: Y_one_hot[card_i, 0] = 1
+    elif 'Water' in Y_loaded[card_i]: Y_one_hot[card_i, 1] = 1
+    elif 'Grass' in Y_loaded[card_i]: Y_one_hot[card_i, 2] = 1
+    elif 'Lightning' in Y_loaded[card_i]: Y_one_hot[card_i, 3] = 1
+    elif 'Grass' in Y_loaded[card_i]: Y_one_hot[card_i, 4] = 1
+    elif 'Psychic' in Y_loaded[card_i]: Y_one_hot[card_i, 5] = 1
+    elif 'Fighting' in Y_loaded[card_i]: Y_one_hot[card_i, 6] = 1
+    elif 'Dragon' in Y_loaded[card_i]: Y_one_hot[card_i, 7] = 1
+    elif 'Darkness' in Y_loaded[card_i]: Y_one_hot[card_i, 8] = 1
+    elif 'Metal' in Y_loaded[card_i]: Y_one_hot[card_i, 9] = 1
+    elif 'Colorless' in Y_loaded[card_i]: Y_one_hot[card_i, 10] = 1
+    elif 'N/A' in Y_loaded[card_i]: Y_one_hot[card_i, 11] = 1
+
+# Shuffle X and Y matrices
+X_shuffled = X_loaded
+Y_shuffled = Y_one_hot
+shuffled_i = shuffle(range(num_cards))
+for i in range(num_cards):
+    X_shuffled[i, :, :, :] = X_loaded[shuffled_i[i], :, :, :]
+    Y_shuffled[i, :] = Y_one_hot[shuffled_i[i], :]
+
+# Divide X and Y into train, dev, and test groups
+train_end_index = int(0.8 * num_cards) # use 80% of data for train
+dev_end_index = int(0.9 * num_cards) # 10% dev (other 10% test)
+X_train = X_shuffled[:train_end_index, :, :, :] / 255
+X_dev = X_shuffled[train_end_index:dev_end_index, :, :, :] / 255
+X_test = X_shuffled[dev_end_index:, :, :, :] / 255
+Y_train = Y_shuffled[:train_end_index, :]
+Y_dev = Y_shuffled[train_end_index:dev_end_index, :]
+Y_test = Y_shuffled[dev_end_index:, :]
+
+m = X_train.shape[0]
+
+print("number of training examples = " + str(X_train.shape[0]))
+print("number of dev examples = " + str(X_dev.shape[0]))
+print("number of test examples = " + str(X_test.shape[0]))
+print("X_train shape: " + str(X_train.shape))
+print("Y_train shape: " + str(Y_train.shape))
+print("X_dev shape: " + str(X_dev.shape))
+print("Y_dev shape: " + str(Y_dev.shape))
+print("X_test shape: " + str(X_test.shape))
+print("Y_test shape: " + str(Y_test.shape))
+
+# Create placeholders
+X, Y = create_placeholders(n_h, n_w, n_c, n_classes)
+print("X = " + str(X))
+print("Y = " + str(Y))
 
 # Define model hyperparameters
 lr = 0.009  # learning rate
-num_epochs = 200
-mb_size = m  # mini-batch size
+num_epochs = 250 
+mb_size = 500  # mini-batch size
 
 # Run it
-train_accuracy, dev_accuracy, parameters, costs = model(X_train, Y_train, X_dev, Y_dev)
+start_time = time.time()
+train_accuracy, dev_accuracy, test_accuracy, parameters, costs = model(X_train, Y_train, X_dev, Y_dev, X_test, Y_test, lr, num_epochs, mb_size)
+end_time = time.time()
+time_elapsed = end_time - start_time
 
 # Save the performance specs as a .txt file
-save_file = open(data_path + "/outputs/convnet_class_type_" + str(m) + "_" + str(lr) + "_" + str(num_epochs) + "_" +
+save_file = open("/home/ubuntu/PokeNet/type_CNN_output/" + str(m) + "_" + str(lr) + "_" + str(num_epochs) + "_" +
                  str(mb_size) + ".txt", "w+")
 save_file.write(str(train_accuracy) + "\n")
 save_file.write(str(dev_accuracy) + "\n")
+save_file.write(str(test_accuracy) + "\n")
+save_file.write(str(time_elapsed) + "\n")
 save_file.write(" ".join(map(str, costs)))
 save_file.close()
