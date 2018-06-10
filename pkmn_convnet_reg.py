@@ -26,43 +26,13 @@ from tensorflow.python.framework import ops
 import pkmn_load_data_img as pkmn_data
 from sklearn.utils import shuffle
 import random_mini_batches as rmb
-
-# Import data
-data_path = "/Users/shatzlab/PycharmProjects/Pokemon_Deep_Learning/"
-_, X_loaded, _, _, _, _, _, _, _, Y_loaded = pkmn_data.pkmn_load_data_img(150, data_path)
-Y_loaded = Y_loaded.T
-
-# Dimensions of input
-num_cards, n_h, n_w, n_c = X_loaded.shape
-
-# Shuffle X and Y matrices
-X_shuffled = X_loaded
-Y_shuffled = Y_loaded
-shuffled_i = shuffle(range(num_cards))
-for i in range(num_cards):
-    X_shuffled[i, :, :, :] = X_loaded[shuffled_i[i], :, :, :]
-    Y_shuffled[i, 0] = Y_loaded[shuffled_i[i], 0]
-
-# Divide X and Y into train and dev groups
-train_end_index = int(0.8 * num_cards) #use 80% of data for train
-X_train = X_shuffled[:train_end_index, :, :, :] / 255
-X_dev = X_shuffled[train_end_index:, :, :, :] / 255
-Y_train = Y_shuffled[:train_end_index, :]
-Y_dev = Y_shuffled[train_end_index:, :]
-
-m = X_train.shape[0]
-
-print("number of training examples = " + str(X_train.shape[0]))
-print("number of test examples = " + str(X_dev.shape[0]))
-print("X_train shape: " + str(X_train.shape))
-print("Y_train shape: " + str(Y_train.shape))
-print("X_test shape: " + str(X_dev.shape))
-print("Y_test shape: " + str(Y_dev.shape))
+import time
+from copy import deepcopy
 
 
 # Create placeholders
 
-def create_placeholders(n_H0, n_W0, n_C0):
+def create_placeholders(n_H0, n_W0, n_C0, n_y):
     """
     Creates the placeholders for the tensorflow session.
 
@@ -70,6 +40,7 @@ def create_placeholders(n_H0, n_W0, n_C0):
     n_H0 -- scalar, height of an input image
     n_W0 -- scalar, width of an input image
     n_C0 -- scalar, number of channels of the input
+    n_y  -- scalar, number of classes
 
     Returns:
     X -- placeholder for the data input, of shape [None, n_H0, n_W0, n_C0] and dtype "float"
@@ -77,14 +48,9 @@ def create_placeholders(n_H0, n_W0, n_C0):
     """
 
     X = tf.placeholder(tf.float32, shape=(None, n_H0, n_W0, n_C0))
-    Y = tf.placeholder(tf.float32, shape=(None, 1))
+    Y = tf.placeholder(tf.float32, shape=(None, n_y))
 
     return X, Y
-
-
-X, Y = create_placeholders(n_h, n_w, n_c)
-print("X = " + str(X))
-print("Y = " + str(Y))
 
 
 # Initialize parameters
@@ -160,10 +126,14 @@ def forward_propagation(X, parameters):
     # FLATTEN
     P2 = tf.contrib.layers.flatten(P2)
 
-    # FULLY-CONNECTED without nonlinear activation
+    # FULLY-CONNECTED without nonlinear activation (softmax combined with cost fn)
     Z3 = tf.contrib.layers.fully_connected(P2, num_outputs=1, activation_fn=None)
 
-    return Z3
+    out = {
+        'input': X, 'Z1': Z1, 'A1': A1, 'P1': P1, 'Z2': Z2, 'A2': A2, 'P2': P2, 'Z3': Z3
+    }
+
+    return out
 
 
 # Compute cost
@@ -173,7 +143,7 @@ def compute_cost(Z3, Y):
     Computes the cost
 
     Arguments:
-    Z3 -- output of forward propagation (output of the last LINEAR unit), of shape (1, number of examples)
+    Z3 -- output of forward propagation (output of the last LINEAR unit), of shape (6, number of examples)
     Y -- "true" labels vector placeholder, same shape as Z3
 
     Returns:
@@ -195,8 +165,8 @@ def compute_cost(Z3, Y):
 # - compute the cost
 # - create an optimizer
 
-def model(X_train, Y_train, X_dev, Y_dev, learning_rate=0.009,
-          num_epochs=100, minibatch_size=m, print_cost=True):
+def model(X_train, Y_train, X_dev, Y_dev, X_test, Y_test, learning_rate=0.009,
+          num_epochs=200, minibatch_size=10, print_cost=True):
     """
     Implements a three-layer ConvNet in Tensorflow:
     CONV2D -> RELU -> MAXPOOL -> CONV2D -> RELU -> MAXPOOL -> FLATTEN -> FULLYCONNECTED
@@ -217,20 +187,28 @@ def model(X_train, Y_train, X_dev, Y_dev, learning_rate=0.009,
     parameters -- parameters learnt by the model. They can then be used to predict.
     """
 
+
     ops.reset_default_graph()  # to be able to rerun the model without overwriting tf variables
     tf.set_random_seed(1)  # to keep results consistent (tensorflow seed)
     seed = 3  # to keep results consistent (numpy seed)
     (m, n_H0, n_W0, n_C0) = X_train.shape
+    n_y = Y_train.shape[1]
     costs = []  # To keep track of the cost
 
     # Create Placeholders of the correct shape
-    X, Y = create_placeholders(n_H0, n_W0, n_C0)
+    X, Y = create_placeholders(n_H0, n_W0, n_C0, n_y)
 
     # Initialize parameters
     parameters = initialize_parameters()
 
     # Forward propagation: Build the forward propagation in the tensorflow graph
-    Z3 = forward_propagation(X, parameters)
+    Z3 = forward_propagation(X, parameters)['Z3']
+
+    # Get network layers (for CAM later)
+    inputL = forward_propagation(X, parameters)['input']
+    Z1 = forward_propagation(X, parameters)['Z1']
+    Z2 = forward_propagation(X, parameters)['Z2']
+    W_fc = [v for v in tf.trainable_variables() if v.name == "fully_connected/weights:0"][0]
 
     # Cost function: Add cost function to tensorflow graph
     cost = compute_cost(Z3, Y)
@@ -282,24 +260,110 @@ def model(X_train, Y_train, X_dev, Y_dev, learning_rate=0.009,
         rmse = tf.sqrt(tf.reduce_mean(tf.square(Z3 - Y)))
         train_rmse = rmse.eval({X: X_train, Y: Y_train})
         dev_rmse = rmse.eval({X: X_dev, Y: Y_dev})
+        test_rmse = rmse.eval({X: X_test, Y: Y_test})
         print("Train RMSE:", train_rmse)
         print("Dev RMSE:", dev_rmse)
+        print("Test RMSE:", test_rmse)
 
-        return train_rmse, dev_rmse, parameters, costs
+        # Make CAM map
 
+        inputimg = sess.run(inputL, feed_dict={X: testimg})
+        outval = sess.run(Z3, feed_dict={X: testimg})
+        camval = sess.run(Z1, feed_dict={X: testimg})
+        cweights = W_fc
+
+        # Plot original Image
+        plt.matshow(inputimg[0, :, :, 0], cmap=plt.get_cmap('gray'))
+        plt.title("Input image")
+        plt.colorbar()
+        plt.show()
+
+        # Plot class activation maps
+        predlabel = np.argmax(outval)
+        predweights = cweights[:, 0]
+        camsum = np.zeros((camval.shape[1], camval.shape[2]))
+        for j in range(camval.shape[3]):
+            camsum = camsum + predweights[j] * camval[0, :, :, j]
+        camavg = camsum / camval.shape[3]
+        # Plot
+        fig, ax = plt.subplots()
+        im = ax.matshow(camavg.eval(session=sess), cmap=plt.get_cmap('inferno'))
+        ax.set_title("[%d] prob is %.3f" % (0, outval[0, 0]), size=10)
+        ax.xaxis.set_major_locator(plt.NullLocator())
+        ax.yaxis.set_major_locator(plt.NullLocator())
+        plt.draw()
+
+        cbar_ax = fig.add_axes([0.85, 0.15, 0.05, 0.7])
+        fig.colorbar(im, cax=cbar_ax)
+        plt.show()
+
+        return train_rmse, dev_rmse, test_rmse, parameters, costs
+
+
+# Load data
+data_path = "/Users/shatzlab/PycharmProjects/Pokemon_Deep_Learning/"
+X_loaded, _, _, _, _, _, _, _, Y_loaded = pkmn_data.pkmn_load_data_img(4000, data_path)
+Y_loaded = Y_loaded.T
+
+test_i = 3929
+testimg = deepcopy(X_loaded[test_i,:,:,:])
+testimg = testimg.reshape((1, testimg.shape[0], testimg.shape[0], 3))
+
+# Dimensions of input data and number of classes
+num_cards, n_h, n_w, n_c = X_loaded.shape
+
+# Shuffle X and Y matrices
+X_shuffled = X_loaded
+Y_shuffled = Y_loaded
+shuffled_i = shuffle(range(num_cards))
+for i in range(num_cards):
+    X_shuffled[i, :, :, :] = X_loaded[shuffled_i[i], :, :, :]
+    Y_shuffled[i, 0] = Y_loaded[shuffled_i[i], 0]
+
+# Divide X and Y into train, dev, and test groups
+train_end_index = int(0.8 * num_cards) # use 80% of data for train
+dev_end_index = int(0.9 * num_cards) # 10% dev (other 10% test)
+X_train = X_shuffled[:train_end_index, :, :, :] / 255
+X_dev = X_shuffled[train_end_index:dev_end_index, :, :, :] / 255
+X_test = X_shuffled[dev_end_index:, :, :, :] / 255
+Y_train = Y_shuffled[:train_end_index, :]
+Y_dev = Y_shuffled[train_end_index:dev_end_index, :]
+Y_test = Y_shuffled[dev_end_index:, :]
+
+m = X_train.shape[0]
+
+print("number of training examples = " + str(X_train.shape[0]))
+print("number of dev examples = " + str(X_dev.shape[0]))
+print("number of test examples = " + str(X_test.shape[0]))
+print("X_train shape: " + str(X_train.shape))
+print("Y_train shape: " + str(Y_train.shape))
+print("X_dev shape: " + str(X_dev.shape))
+print("Y_dev shape: " + str(Y_dev.shape))
+print("X_test shape: " + str(X_test.shape))
+print("Y_test shape: " + str(Y_test.shape))
+
+# Create placeholders
+X, Y = create_placeholders(n_h, n_w, n_c, n_c)
+print("X = " + str(X))
+print("Y = " + str(Y))
 
 # Define model hyperparameters
 lr = 0.009  # learning rate
-num_epochs = 200
+num_epochs = 100
 mb_size = m  # mini-batch size
 
 # Run it
-train_rmse, dev_rmse, parameters, costs = model(X_train, Y_train, X_dev, Y_dev, lr, num_epochs, mb_size)
+start_time = time.time()
+train_rmse, dev_rmse, test_rmse, parameters, costs = model(X_train, Y_train, X_dev, Y_dev, X_test, Y_test, lr, num_epochs, mb_size)
+end_time = time.time()
+time_elapsed = end_time - start_time
 
 # Save the performance specs as a .txt file
-save_file = open(data_path + "/outputs/convnet_reg_HP_" + str(m) + "_" + str(lr) + "_" + str(num_epochs) + "_" +
+save_file = open(data_path + "/outputs/convnet_CNN_HP_CAM_2_" + str(m) + "_" + str(lr) + "_" + str(num_epochs) + "_" +
                  str(mb_size) + ".txt", "w+")
 save_file.write(str(train_rmse) + "\n")
 save_file.write(str(dev_rmse) + "\n")
+save_file.write(str(test_rmse) + "\n")
+save_file.write(str(time_elapsed) + "\n")
 save_file.write(" ".join(map(str, costs)))
 save_file.close()
