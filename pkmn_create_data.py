@@ -56,16 +56,15 @@ def vec2img(img_vec, new_shape):
 # SCRIPT START
 
 # Load the .json file as a dict
-with open('cards.json') as data_file:
+with open('/home/ubuntu/PokeNet/PkmnCardScraper/cards.json') as data_file:
     data = json.load(data_file)
-data = data[0:300]
 # How many cards are there?
 num_cards = len(data)
 m = num_cards
 print("There are %d cards" % num_cards)
 
 # Define the dimensions of the cards and small-cards
-n_w, n_h = (600, 824)
+n_w, n_h = (224, 224)
 n_w_small, n_h_small = (60, 82)
 n_x = n_h * n_w * 3
 n_x_small = n_h_small * n_w_small * 3
@@ -82,6 +81,7 @@ Y_price_h = np.zeros((1, num_cards))
 Y_HP = np.zeros((1, num_cards))
 
 # Iterate through all cards, copying values from dict to structures
+#data = data[7700:7720]
 xi = 0
 for card in data:
 
@@ -92,17 +92,21 @@ for card in data:
     with urllib.request.urlopen(cur_url) as url:
         cur_f = io.BytesIO(url.read())
     cur_img_og = Image.open(cur_f).convert('RGB')
-    #cur_img = cur_img_og.resize((n_w, n_h))
-    cur_img_small = cur_img_og.resize((n_w_small, n_h_small))
-    #cur_img_vec = img2vec(cur_img)
-    cur_img_vec_small = img2vec(cur_img_small)
+    cur_img = cur_img_og.resize((n_w, n_h))
+    #cur_img_small = cur_img_og.resize((n_w_small, n_h_small))
+    cur_img_vec = img2vec(cur_img)
+    #cur_img_vec_small = img2vec(cur_img_small)
 
     # Assign vectors and other values to superstructures
-    #X[:, xi] = cur_img_vec[:, 0]
-    X_small[:, xi] = cur_img_vec_small[:, 0]
+    X[:, xi] = cur_img_vec[:, 0]
+    #X_small[:, xi] = cur_img_vec_small[:, 0]
     Y_name.append(card['name'])
     Y_type.append(card['type'])
     Y_set.append(card['set'])
+    #remove commas from prices
+    card['low price'] = card['low price'].replace(',','')
+    card['mid price'] = card['mid price'].replace(',','')
+    card['high price'] = card['high price'].replace(',','')
     Y_price_l[0, xi] = card['low price']
     Y_price_m[0, xi] = card['mid price']
     Y_price_h[0, xi] = card['high price']
@@ -118,22 +122,22 @@ print("All cards vectorized!")
 # Write the data structures
 
 # Write X
-# f_X = open("X.txt", "w+")
-# for col in range(num_cards):
-#     cur_col = X[:, col].astype(np.uint8)
-#     cur_col_list = cur_col.tolist()
-#     towrite = " ".join(map(str, cur_col_list))
-#     f_X.write(towrite + "\n")
-# f_X.close()
-
-# Write X_small
-f_X_small = open("X_small.txt", "w+")
+f_X = open("X.txt", "w+")
 for col in range(num_cards):
-    cur_col = X_small[:, col].astype(np.uint8)
+    cur_col = X[:, col].astype(np.uint8)
     cur_col_list = cur_col.tolist()
     towrite = " ".join(map(str, cur_col_list))
-    f_X_small.write(towrite + "\n")
-f_X_small.close()
+    f_X.write(towrite + "\n")
+f_X.close()
+
+# Write X_small
+#f_X_small = open("X_small.txt", "w+")
+#for col in range(num_cards):
+#    cur_col = X_small[:, col].astype(np.uint8)
+#    cur_col_list = cur_col.tolist()
+#    towrite = " ".join(map(str, cur_col_list))
+#    f_X_small.write(towrite + "\n")
+#f_X_small.close()
 
 # Write Y_name
 f_Y_name = open("Y_name.txt", "w+")

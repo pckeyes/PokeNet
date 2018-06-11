@@ -37,7 +37,7 @@ def pkmn_load_data_img(num_cards, card_path):
     print("There are %d cards" % num_cards)
 
     # Define dimensions of images
-    n_w, n_h = (600, 824)
+    n_w, n_h = (224,224)
     n_w_small, n_h_small = (60, 82)
 
     # Initialize the X and Y structures
@@ -52,17 +52,17 @@ def pkmn_load_data_img(num_cards, card_path):
     Y_HP = np.zeros((1, num_cards))
 
     # Get list of image file names for cards and cards_small
-    cards_file_paths = glob.glob(card_path + "/cards/*.jpg")
-    cards_small_file_paths = glob.glob(card_path + "/cards_small/*.jpg")
+    cards_file_paths = glob.glob(card_path + "*.jpg")
+    #cards_small_file_paths = glob.glob(card_path + "/cards_small/*.jpg")
 
     # Open .txt files that contain the Y data
-    f_Y_name = open("Y_name.txt", "r")
-    f_Y_type = open("Y_type.txt", "r")
-    f_Y_set = open("Y_set.txt", "r")
-    f_Y_price_l = open("Y_price_l.txt", "r")
-    f_Y_price_m = open("Y_price_m.txt", "r")
-    f_Y_price_h = open("Y_price_h.txt", "r")
-    f_Y_HP = open("Y_HP.txt", "r")
+    f_Y_name = open("labels/Y_name.txt", "r")
+    f_Y_type = open("labels/Y_type.txt", "r")
+    f_Y_set = open("labels/Y_set.txt", "r")
+    f_Y_price_l = open("labels/Y_price_l.txt", "r")
+    f_Y_price_m = open("labels/Y_price_m.txt", "r")
+    f_Y_price_h = open("labels/Y_price_h.txt", "r")
+    f_Y_HP = open("labels/Y_HP.txt", "r")
 
     # Get the lines (pertaining to columns) for Ys
     Y_name_cols = f_Y_name.read().splitlines()
@@ -78,8 +78,8 @@ def pkmn_load_data_img(num_cards, card_path):
 
         print("Loading card " + str(card_i+1) + " out of " + str(num_cards))
 
-        #X[card_i, :, :, :] = np.array(Image.open(cards_file_paths[card_i]))
-        X_small[card_i, :, :, :] = np.array(Image.open(cards_small_file_paths[card_i]))
+        X[card_i, :, :, :] = np.array(Image.open(cards_file_paths[card_i]))
+        #X_small[card_i, :, :, :] = np.array(Image.open(cards_small_file_paths[card_i]))
 
         Y_name.append(Y_name_cols[card_i])
         Y_type.append(Y_type_cols[card_i])
@@ -97,20 +97,20 @@ def pkmn_load_data_img(num_cards, card_path):
     # # FOR TEST PURPOSES:
     #
     # # Choose a card to display
-    # test_i = 0
-    # print(Y_name[test_i])
-    # print(Y_type[test_i])
-    # print(Y_set[test_i])
-    # print(Y_price_l[0, test_i])
-    # print(Y_price_m[0, test_i])
-    # print(Y_price_h[0, test_i])
-    # print(Y_HP[0, test_i])
-    # test_imgplot = plt.imshow(X_small[test_i, :, :, :])
-    # plt.show()
+    #test_i = 0
+    #print(Y_name[test_i])
+    #print(Y_type[test_i])
+    #print(Y_set[test_i])
+    #print(Y_price_l[0, test_i])
+    #print(Y_price_m[0, test_i])
+    #print(Y_price_h[0, test_i])
+    #print(Y_HP[0, test_i])
+    #test_imgplot = plt.imshow(X[test_i, :, :, :])
+    #plt.show()
 
     # Return the outputs
-    return X, X_small, Y_type, Y_name, Y_type, Y_set, Y_price_l, Y_price_m, Y_price_h, Y_HP
+    return X, X_small, Y_name, Y_type, Y_set, Y_price_l, Y_price_m, Y_price_h, Y_HP
 
 
 # FOR TESTING PURPOSES
-#pkmn_load_data_img(3, "/Users/shatzlab/PycharmProjects/Pokemon_Deep_Learning/")
+#pkmn_load_data_img(1, "/home/ubuntu/PokeNet/cards/")

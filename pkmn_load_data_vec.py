@@ -41,7 +41,7 @@ def pkmn_load_data_vec(num_cards):
 
     # Define dimensions of images
     n_w, n_h = (600, 824)
-    n_w_small, n_h_small = (60, 82)
+    n_w_small, n_h_small = (224, 224)
     n_x = n_h * n_w * 3
     n_x_small = n_h_small * n_w_small * 3
 
@@ -58,7 +58,7 @@ def pkmn_load_data_vec(num_cards):
 
     # Open .txt files that contain the data
     #f_X = open("X.txt", "r")
-    f_X_small = open("X_small.txt", "r")
+    f_X_small = open("X.txt", "r")
     f_Y_name = open("Y_name.txt", "r")
     f_Y_type = open("Y_type.txt", "r")
     f_Y_set = open("Y_set.txt", "r")
