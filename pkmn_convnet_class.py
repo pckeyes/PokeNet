@@ -247,6 +247,7 @@ def model(X_train, Y_train, X_dev, Y_dev, X_test, Y_test, learning_rate=0.009,
             if print_cost == True and epoch % 1 == 0:
                 costs.append(minibatch_cost)
 
+
         # # Plot the cost
         # plt.plot(np.squeeze(costs))
         # plt.ylabel('cost')
@@ -290,7 +291,7 @@ def model(X_train, Y_train, X_dev, Y_dev, X_test, Y_test, learning_rate=0.009,
         #    for j in range(camval.shape[3]):
         #        camsum = camsum + predweights[j] * camval[0, :, :, j]
         #    camavg = camsum / camval.shape[3]
-        #    # Plot
+            # Plot
         #    im = axs[int(i / 6)][i % 6].matshow(camavg.eval(session=sess), cmap=plt.get_cmap('inferno'))
         #    axs[int(i / 6)][i % 6].set_title("[%d] prob is %.3f" % (i, outval[0, i]), size=10)
         #    axs[int(i / 6)][i % 6].xaxis.set_major_locator(plt.NullLocator())
@@ -306,9 +307,9 @@ def model(X_train, Y_train, X_dev, Y_dev, X_test, Y_test, learning_rate=0.009,
 
 
 # Load data
-data_path = "/Users/piperkeyes/Documents/Stanford/Classes/CS230_DeepLearning/PokeNet"
-X_loaded, _, Y_name, Y_loaded, _, _, _, _, _ = pkmn_data.pkmn_load_data_img(200, data_path)
-test_i = 64
+data_path = "/Users/shatzlab/PycharmProjects/Pokemon_Deep_Learning/"
+X_loaded, _, Y_name, Y_loaded, _, _, _, _, _ = pkmn_data.pkmn_load_data_img(150, data_path)
+test_i = 0
 testimg = deepcopy(X_loaded[test_i,:,:,:])
 testimg = testimg.reshape((1, testimg.shape[0], testimg.shape[0], 3))
 
@@ -368,9 +369,9 @@ print("X = " + str(X))
 print("Y = " + str(Y))
 
 # Define model hyperparameters
-lr = 0.009  # learning rate
-num_epochs = 250 
-mb_size = 500  # mini-batch size
+lr = 0.09  # learning rate
+num_epochs = 250
+mb_size = m  # mini-batch size
 
 # Run it
 start_time = time.time()
@@ -379,7 +380,7 @@ end_time = time.time()
 time_elapsed = end_time - start_time
 
 # Save the performance specs as a .txt file
-save_file = open("/home/ubuntu/PokeNet/type_CNN_output/" + str(m) + "_" + str(lr) + "_" + str(num_epochs) + "_" +
+save_file = open(data_path + "/outputs/convnet_class_type_" + str(m) + "_" + str(lr) + "_" + str(num_epochs) + "_" +
                  str(mb_size) + ".txt", "w+")
 save_file.write(str(train_accuracy) + "\n")
 save_file.write(str(dev_accuracy) + "\n")

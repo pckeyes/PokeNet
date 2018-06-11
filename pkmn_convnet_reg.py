@@ -302,10 +302,10 @@ def model(X_train, Y_train, X_dev, Y_dev, X_test, Y_test, learning_rate=0.009,
 
 # Load data
 data_path = "/Users/shatzlab/PycharmProjects/Pokemon_Deep_Learning/"
-X_loaded, _, _, _, _, _, _, _, Y_loaded = pkmn_data.pkmn_load_data_img(4000, data_path)
+X_loaded, _, _, _, _, _, _, _, Y_loaded = pkmn_data.pkmn_load_data_img(188, data_path)
 Y_loaded = Y_loaded.T
 
-test_i = 3929
+test_i = 186
 testimg = deepcopy(X_loaded[test_i,:,:,:])
 testimg = testimg.reshape((1, testimg.shape[0], testimg.shape[0], 3))
 
@@ -359,7 +359,7 @@ end_time = time.time()
 time_elapsed = end_time - start_time
 
 # Save the performance specs as a .txt file
-save_file = open(data_path + "/outputs/convnet_CNN_HP_CAM_2_" + str(m) + "_" + str(lr) + "_" + str(num_epochs) + "_" +
+save_file = open(data_path + "/outputs/convnet_CNN_HP_CAM_3_" + str(m) + "_" + str(lr) + "_" + str(num_epochs) + "_" +
                  str(mb_size) + ".txt", "w+")
 save_file.write(str(train_rmse) + "\n")
 save_file.write(str(dev_rmse) + "\n")
